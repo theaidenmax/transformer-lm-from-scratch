@@ -1,6 +1,13 @@
-datasets/
+stanford/
+consolidation/
+.ipynb_checkpoints/
 __pycache__/
 *.pyc
-*.ipynb
 
-stanford/
+data/*
+!data/.gitkeep
+*.pkl
+*.npy
+*.txt
+*.ipynb
+models/
