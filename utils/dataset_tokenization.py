@@ -1,11 +1,11 @@
 import numpy as np
 from src.tokenizer import Tokenizer
 
-VOCAB_FILEPATH = "../datasets/tokenizer_vocab.pkl"
-MERGES_FILEPATH = "../datasets/tokenizer_merges.pkl"
+VOCAB_FILEPATH = "data/tokenizer_vocab.pkl"
+MERGES_FILEPATH = "data/tokenizer_merges.pkl"
 SPECIAL_TOKENS = ["<|endoftext|>"]
 
-CORPUS = "../datasets/owt_small.txt"
+CORPUS = "data/owt_small.txt"
 
 tokenizer = Tokenizer.from_files(
     vocab_filepath=VOCAB_FILEPATH,
@@ -20,6 +20,6 @@ tokens = tokenizer.encode(text)
 
 tokens_np = np.array(tokens, dtype=np.uint16)
 
-np.save("../datasets/owt_train.npy", tokens_np)
+np.save("data/owt_train.npy", tokens_np)
 
 print(f"Tokenization complete. Total tokens: {len(tokens_np)}")
