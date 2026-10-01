@@ -162,3 +162,20 @@ class RotaryPositionalEmbedding(nn.Module):
         sin = torch.repeat_interleave(sin, 2, dim=-1)
 
         return (x * cos) + (self.rotate_half(x) * sin)
+
+
+class softmax(nn.Module):
+
+    def __init__(self, dim: int | None = None
+    ):
+        super().__init__()
+
+        self.dim = dim
+
+    def forward(self, x: torch.Tensor):
+        M = x.max(dim=self.dim, keepdim=True).values
+        x_shift = x - M
+        exp_x_shift = torch.exp(x_shift)
+        exp_sum = torch.sum(exp_x_shift, dim=self.dim, keepdim=True)
+
+        return exp_x_shift / exp_sum
