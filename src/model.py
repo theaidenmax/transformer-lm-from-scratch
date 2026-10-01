@@ -61,6 +61,7 @@ class Embedding(nn.Module):
 
 
 class RMSNorm(nn.Module):
+
     def __init__(self, 
                  d_model: int, 
                  eps: float = 1e-5, 
@@ -91,6 +92,7 @@ class RMSNorm(nn.Module):
 
     
 class PositionwiseFeedForward(nn.Module):
+
     def __init__(self, 
                  d_model: int,
                  d_ff: int | None = None,
@@ -120,3 +122,43 @@ class PositionwiseFeedForward(nn.Module):
         value = self.w3(x)
 
         return self.w2(gate * value)
+
+
+class RotaryPositionalEmbedding(nn.Module):
+
+    def __init__(self, 
+                 theta: float,
+                 d_k: int,
+                 max_seq_len: int,
+                 device: torch.device | None = None
+    ):
+        super().__init__()
+
+        self.theta = theta
+        self.d_k = d_k
+        self.max_seq_len = max_seq_len
+        
+        pos = torch.arange(max_seq_len, device=device)
+        freqs = 1.0 / (theta ** (torch.arange(0, d_k, 2, device=device).float() / d_k))
+        angles = torch.outer(pos, freqs)
+
+        cos = torch.cos(angles)
+        sin = torch.sin(angles)
+
+        self.register_buffer("cos_cached", cos, persistent=False)
+        self.register_buffer("sin_cached", sin, persistent=False)
+
+    def rotate_half(x: torch.Tensor) -> torch.Tensor:
+        x1 = x[..., 0::2]
+        x2 = x[..., 1::2]
+
+        return torch.stack([-x2, x1], dim=-1).flatten(start_dim=-2)
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        cos = self.cos_cached[token_positions]
+        sin = self.sin_cached[token_positions]
+
+        cos = torch.repeat_interleave(cos, 2, dim=-1)
+        sin = torch.repeat_interleave(sin, 2, dim=-1)
+
+        return (x * cos) + (self.rotate_half(x) * sin)
