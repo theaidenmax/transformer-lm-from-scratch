@@ -88,3 +88,35 @@ class RMSNorm(nn.Module):
         output = (x_float / rms)  * self.weight
 
         return output.to(in_dtype)
+
+    
+class PositionwiseFeedForward(nn.Module):
+    def __init__(self, 
+                 d_model: int,
+                 d_ff: int | None = None,
+                 device: torch.device | None = None,
+                 dtype: torch.dtype | None = None
+    ):
+        super().__init__()
+
+        self.d_model = d_model
+        self.d_ff = d_ff
+        self.device = device
+        self.dtype = dtype
+
+        if self.d_ff is None:
+            d_ff_calc = int((8 / 3) * self.d_model)
+            self.d_ff = 64 * ((d_ff_calc + 63) // 64)
+
+        self.w1 = Linear(self.d_model, self.d_ff, device=device, dtype=dtype)
+        self.w2 = Linear(self.d_ff, self.d_model, device=device, dtype=dtype)
+        self.w3 = Linear(self.d_model, self.d_ff, device=device, dtype=dtype)
+
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        w1_out = self.w1(x)
+        gate = w1_out * torch.sigmoid(w1_out)
+
+        value = self.w3(x)
+
+        return self.w2(gate * value)
