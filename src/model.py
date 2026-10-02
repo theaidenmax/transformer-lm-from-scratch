@@ -197,6 +197,7 @@ class CausalMultiHeadSelfAttention(nn.Module):
     def __init__(self, d_model: int,
                  num_heads: int, 
                  rope: RotaryPositionalEmbedding | None = None,
+                 device: torch.device | None = None
     ):
         super().__init__()
 
