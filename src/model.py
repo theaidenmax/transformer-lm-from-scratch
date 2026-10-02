@@ -181,7 +181,7 @@ def scaled_dot_product_attention(Q: torch.Tensor,
 
     scores = Q @ K.transpose(-2, -1)
 
-    scaled_scores = scores / torch.sqrt(d_k)
+    scaled_scores = scores / d_k ** 0.5
 
     if mask is not None:
         scaled_scores = scaled_scores.masked_fill(~mask, float('-inf'))
@@ -191,3 +191,52 @@ def scaled_dot_product_attention(Q: torch.Tensor,
     output = attn_weights @ V
 
     return output
+
+class CausalMultiHeadSelfAttention(nn.Module):
+
+    def __init__(self, d_model: int,
+                 num_heads: int, 
+                 rope: RotaryPositionalEmbedding | None = None,
+    ):
+        super().__init__()
+
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_k = d_model // num_heads
+
+        self.q_proj = Linear(d_model, d_model, device=device)
+        self.k_proj = Linear(d_model, d_model, device=device)
+        self.v_proj = Linear(d_model, d_model, device=device)
+        self.out_proj = Linear(d_model, d_model, device=device)
+
+        self.rope = rope
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+        Q = self.q_proj(x)
+        K = self.k_proj(x)
+        V = self.v_proj(x)
+
+        batch_size, seq_len, _ = x.shape
+
+        Q = Q.view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
+        K = K.view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
+        V = V.view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
+
+        if self.rope is not None:
+            if token_positions is None:
+                token_positions = torch.arange(seq_len, device=x.device)
+
+            Q = self.rope(Q, token_positions)
+            K = self.rope(K, token_positions)
+
+        mask = torch.tril(torch.ones((seq_len, seq_len), device=x.device, dtype=torch.bool))
+
+        out = scaled_dot_product_attention(Q, K, V, mask=mask)
+
+        out = out.transpose(1, 2).contiguous()
+
+        out = out.view(batch_size, seq_len, self.d_model)
+
+        output = self.out_proj(out)
+
+        return output
