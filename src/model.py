@@ -164,7 +164,7 @@ class RotaryPositionalEmbedding(nn.Module):
         return (x * cos) + (self.rotate_half(x) * sin)
 
 
-class softmax(nn.Module):
+class Softmax(nn.Module):
 
     def __init__(self, dim: int | None = None
     ):
