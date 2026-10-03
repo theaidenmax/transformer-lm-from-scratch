@@ -241,3 +241,24 @@ class CausalMultiHeadSelfAttention(nn.Module):
         output = self.out_proj(out)
 
         return output
+
+class TransformerBlock(nn.Module):
+
+    def __init__(self, d_model: int,
+                 num_heads: int,
+                 d_ff: int
+    ):  
+
+        super().__init__()
+
+        self.ln1 = RMSNorm(d_model)
+        self.attn = CausalMultiHeadSelfAttention(d_model=d_model, num_heads=num_heads)
+        self.ln2 = RMSNorm(d_model)
+        self.ffn = PositionwiseFeedForward(d_model=d_model, d_ff=d_ff)
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+        x = x + self.attn(self.ln1(x), token_positions=token_positions)
+
+        x = x + self.ffn(self.ln2(x))
+
+        return x
