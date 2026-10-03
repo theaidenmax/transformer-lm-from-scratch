@@ -209,7 +209,7 @@ class CausalMultiHeadSelfAttention(nn.Module):
         self.k_proj = Linear(d_model, d_model, device=device)
         self.v_proj = Linear(d_model, d_model, device=device)
         self.out_proj = Linear(d_model, d_model, device=device)
-
+    
         self.rope = rope
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
@@ -262,3 +262,44 @@ class TransformerBlock(nn.Module):
         x = x + self.ffn(self.ln2(x))
 
         return x
+
+class TransformerLM(nn.Module):
+
+    def __init__(self,
+                 vocab_size: int,
+                 context_length: int,
+                 num_layers: int,
+                 d_model: int,
+                 num_heads: int,
+                 d_ff: int,
+    ):
+
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.context_length = context_length
+
+        self.token_embedding = Embedding(vocab_size, d_model)
+        self.layers = nn.ModuleList([
+            TransformerBlock(d_model=d_model, num_heads=num_heads, d_ff=d_ff)
+            for _ in range(num_layers)
+        ])
+
+        self.ln_f = RMSNorm(d_model)
+
+        self.lm_head = Linear(d_model, vocab_size)
+
+    def forward(self, in_indices: torch.Tensor) -> torch.Tensor:
+        batch_size, seq_len = in_indices.shape
+
+        x = self.token_embedding(in_indices)
+
+        token_positions = torch.arange(seq_len, device=in_indices.device)
+
+        for layer in self.layers:
+            x = layer(x, token_positions)
+
+        x = self.ln_f(x)
+
+        logits = self.lm_head(x)
+
+        return logits
