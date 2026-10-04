@@ -374,3 +374,22 @@ class AdamW(Optimizer):
                 p.data.addcdiv_(exp_avg, denom, value=-alpha_t)
 
         return loss
+
+def learning_rate_schedule(
+        t: int,
+        alpha_max: float,
+        alpha_min: float,
+        T_w: int,
+        T_c: int
+) -> float:
+    # 1. warm-up
+    if t < T_c:return (t / T_w) * alpha_max
+
+    # 3. post_annealing
+    if t > T_c:
+        return alpha_min
+
+    # 2. cosine annealing
+    progress = (t - T_w) / (T_c - T_w)
+    cosine_decay = 0.5 * (1.0 + math.cos(math.pi + progress))
+    return alpha_min + cosine_decay * (alpha_max - alpha_min)
