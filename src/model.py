@@ -303,3 +303,16 @@ class TransformerLM(nn.Module):
         logits = self.lm_head(x)
 
         return logits
+
+def cross_entropy(logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    target_logits = torch.gather(logits, dim=-1, index=targets.unsqueeze(-1)).squeeze(-1)
+
+    max_logits = torch.max(logits, dim=-1, keepdim=True).values
+
+    shifted_logits = logits - max_logits
+    
+    log_sum_exp = max_logits.squeeze(-1) + torch.log(torch.sum(torch.exp(shifted_logits), dim=-1))
+    
+    loss_per_token = log_sum_exp - target_logits
+
+    return loss_per_token.mean()
