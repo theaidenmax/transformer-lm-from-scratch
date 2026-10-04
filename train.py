@@ -46,15 +46,24 @@ def train(args):
         print(f"Resumed training procces from iteration: {start_iter}")
 
     model.train()
+
+    start_time = None
+    WARMUP_STEPS = 10
+
     for iter_num in range(start_iter, args.max_iters):
+        if iter_num == start_iter + WARMUP_STEPS:
+            torch.cuda.synchronize()
+            start_time = time.time()
+
         lr = learning_rate_schedule(iter_num, args.max_lr, args.min_lr, args.warmup_iters, args.max_iters)
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
         x_batch, y_batch = data_loading(train_data, args.batch_size, args.context_length, device)
 
-        logits = model(x_batch)
-        loss = cross_entropy(logits.view(-1, logits.size(-1)), y_batch.view(-1))
+        with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+            logits = model(x_batch)
+            loss = cross_entropy(logits.view(-1, logits.size(-1)), y_batch.view(-1))
 
         optimizer.zero_grad()
         loss.backward()
@@ -64,18 +73,27 @@ def train(args):
         optimizer.step()
 
         if iter_num % args.log_interval == 0:
-            print(f"Iter {iter_num}/{args.max_iters} Loss: {loss.item():.4f} LR: {lr:.6f}")
+            sec_per_step_str = "N/A"
+        
+        if iter_num > start_iter + WARMUP_STEPS and start_time is not None:
+            torch.cuda.synchronize()
+            elapsed = time.time() - start_time
+            steps_done = iter_num - (start_iter + WARMUP_STEPS)
+            sec_per_step = elapsed / steps_done
+            sec_per_step_str = f"{sec_per_step:.4f}s"
 
-        if iter_num > 0 and iter_num % args.eval_interval == 0:
-            if val_data is not None:
-                val_loss = estimate_loss(model, val_data, args.batch_size, args.context_length, device)
-                print(f"Iter {iter_num} Val Loss: {val_loss:.4f}")
+        print(f"Iter {iter_num}/{args.max_iters} | Loss: {loss.item():.4f} | LR: {lr:.6f} | Sec/Step: {sec_per_step_str}")
 
-            checkpoint_dir = os.path.dirname(args.checkpoint_path)
-            if checkpoint_dir:
-                os.makedirs(checkpoint_dir, exist_ok=True)
-            save_checkpoint(model, optimizer, iter_num, args.checkpoint_path)
-            print(f"Checkpoint saved in {args.checkpoint_path}")
+    if iter_num > 0 and iter_num % args.eval_interval == 0:
+        if val_data is not None:
+            val_loss = estimate_loss(model, val_data, args.batch_size, args.context_length, device)
+            print(f"Iter {iter_num} Val Loss: {val_loss:.4f}")
+
+        checkpoint_dir = os.path.dirname(args.checkpoint_path)
+        if checkpoint_dir:
+            os.makedirs(checkpoint_dir, exist_ok=True)
+        save_checkpoint(model, optimizer, iter_num, args.checkpoint_path)
+        print(f"Checkpoint saved in {args.checkpoint_path}")
 
     checkpoint_dir = os.path.dirname(args.checkpoint_path)
     if checkpoint_dir:
