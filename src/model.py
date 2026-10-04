@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 from einops import einsum
 from torch.optim import Optimizer
+from typing import Iterable
 
 class Linear(nn.Module):
 
@@ -393,3 +394,20 @@ def learning_rate_schedule(
     progress = (t - T_w) / (T_c - T_w)
     cosine_decay = 0.5 * (1.0 + math.cos(math.pi + progress))
     return alpha_min + cosine_decay * (alpha_max - alpha_min)
+
+def gradient_clipping(params: Iterable[torch.nn.Parameter], max_norm: float, eps: float = 1e-6) -> None:
+    params_with_grad = [p for p in params if p.grad is not None]
+    if not params_with_grad:
+        return
+
+    total_norm_sq = 0.0
+    for p in params_with_grad:
+        param_norm = p.grad.detach().norm(2)
+        total_norm_sq += param_norm.item() ** 2
+
+    total_norm = total_norm_sq ** 0.5
+
+    if total_norm > max_norm:
+        scale = max_norm / (total_norm + eps)
+        for p in params_with_grad:
+            p.grad.detach().mul_(scale)
