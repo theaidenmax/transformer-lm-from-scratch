@@ -384,7 +384,8 @@ def learning_rate_schedule(
         T_c: int
 ) -> float:
     # 1. warm-up
-    if t < T_c:return (t / T_w) * alpha_max
+    if t < T_w:
+        return (t / T_w) * alpha_max
 
     # 3. post_annealing
     if t > T_c:
@@ -392,7 +393,7 @@ def learning_rate_schedule(
 
     # 2. cosine annealing
     progress = (t - T_w) / (T_c - T_w)
-    cosine_decay = 0.5 * (1.0 + math.cos(math.pi + progress))
+    cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
     return alpha_min + cosine_decay * (alpha_max - alpha_min)
 
 def gradient_clipping(params: Iterable[torch.nn.Parameter], max_norm: float, eps: float = 1e-6) -> None:
