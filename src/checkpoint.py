@@ -1,5 +1,6 @@
 import torch
-from typing import Any
+from typing import Any, Optional
+from src.model import Optimizer
 
 def save_checkpoint(
         model: torch.nn.Module,
@@ -18,11 +19,13 @@ def save_checkpoint(
 def load_checkpoint(
         src: Any,
         model: torch.nn.Module,
-        optimizer: torch.optim.Optimizer
+        optimizer: Optional[Optimizer] = None,
 ) -> int:
     checkpoint = torch.load(src, map_location="cpu")
 
     model.load_state_dict(checkpoint["model"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
 
-    return checkpoint[["iteration"]]
+    if optimizer is not None and "optimizer" in checkpoint:
+        optimizer.load_state_dict(checkpoint["optimizer"])
+    
+    return checkpoint["iteration"]
