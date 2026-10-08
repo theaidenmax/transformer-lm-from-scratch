@@ -61,9 +61,11 @@ def train(args):
 
         x_batch, y_batch = data_loading(train_data, args.batch_size, args.context_length, device)
 
-        with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+        with torch.autocast("cuda", dtype=torch.bfloat16):
             logits = model(x_batch)
             loss = cross_entropy(logits.view(-1, logits.size(-1)), y_batch.view(-1))
+        # logits = model(x_batch)
+        # loss = cross_entropy(logits.view(-1, logits.size(-1)), y_batch.view(-1))
 
         optimizer.zero_grad()
         loss.backward()
@@ -82,7 +84,7 @@ def train(args):
             sec_per_step = elapsed / steps_done
             sec_per_step_str = f"{sec_per_step:.4f}s"
 
-        print(f"Iter {iter_num}/{args.max_iters} | Loss: {loss.item():.4f} | LR: {lr:.6f} | Sec/Step: {sec_per_step_str}")
+        print(f"Iter {iter_num}/{args.max_iters} Loss: {loss.item():.4f} LR: {lr:.6f} Sec/Step: {sec_per_step_str}")
 
     if iter_num > 0 and iter_num % args.eval_interval == 0:
         if val_data is not None:
@@ -115,7 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_heads", type=int, default=8)
     parser.add_argument("--d_ff", type=int, default=2048)
     
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--max_iters", type=int, default=5000)
     parser.add_argument("--max_lr", type=float, default=6e-4)
     parser.add_argument("--min_lr", type=float, default=6e-5)
